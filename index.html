@@ -55,7 +55,7 @@
                         <label class="form-label">Password</label>
                         <input type="password" id="loginPass" class="form-control" placeholder="Masukkan password">
                     </div>
-                    <!-- KOTAK TOKEN AKTIVASI (DI-DEFAULT MUNCUL KARENA PILIHAN AWAL SALES) -->
+                    <!-- KOTAK TOKEN AKTIVASI -->
                     <div class="mb-3" id="tokenGroup">
                         <label class="form-label text-danger">Token Aktivasi (Khusus Login Pertama)</label>
                         <input type="text" id="loginToken" class="form-control" placeholder="Masukkan Token dari Admin">
@@ -268,9 +268,10 @@
         function initMap() {
             if (!map) {
                 map = L.map('map').setView([-6.9175, 107.6191], 13);
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                // Menggunakan OpenStreetMap standar (Gratis & Tanpa API Key)
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
-                    attribution: '&copy; CARTO'
+                    attribution: '&copy; OpenStreetMap contributors'
                 }).addTo(map);
             }
         }
