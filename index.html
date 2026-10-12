@@ -26,6 +26,7 @@
             color: white !important;
             font-weight: bold;
         }
+        .toko-selesai { background-color: #d1e7dd !important; border-color: #badbcc !important; }
     </style>
 </head>
 <body>
@@ -55,7 +56,6 @@
                         <label class="form-label">Password</label>
                         <input type="password" id="loginPass" class="form-control" placeholder="Masukkan password">
                     </div>
-                    <!-- KOTAK TOKEN AKTIVASI -->
                     <div class="mb-3" id="tokenGroup">
                         <label class="form-label text-danger">Token Aktivasi (Khusus Login Pertama)</label>
                         <input type="text" id="loginToken" class="form-control" placeholder="Masukkan Token dari Admin">
@@ -81,6 +81,8 @@
                     <div>
                         <button id="btnNavMonitoring" class="btn text-white fw-bold me-2 shadow-sm" style="background-color: #fd7e14;" onclick="switchAdminTab('monitoring')">🟠 Live Monitoring</button>
                         <button class="btn btn-outline-secondary fw-bold shadow-sm" onclick="switchAdminTab('manajemen')">⚙️ Kelola Sales & Token</button>
+                        <!-- Saklar Matikan Alarm Darurat -->
+                        <button class="btn btn-outline-danger btn-sm ms-3 fw-bold" onclick="matikanAlarmAdmin()">🔕 Matikan Alarm Darurat</button>
                     </div>
                     <div class="d-flex align-items-center">
                         <span id="adminNameDisplay" class="me-3 fw-semibold text-secondary"></span>
@@ -91,7 +93,6 @@
 
             <!-- TAB 1: MONITORING (PETA & SIDEBAR KIRI LIST SALES) -->
             <div id="tabMonitoring" class="row">
-                <!-- Sidebar Kiri: Daftar Sales Aktif -->
                 <div class="col-md-4 mb-3">
                     <div class="card p-3" style="height: 600px; overflow-y: auto;">
                         <h5 class="border-bottom pb-2 text-primary">📍 Sales Aktif Beredar</h5>
@@ -100,7 +101,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- Sisi Kanan: Peta Aktif -->
                 <div class="col-md-8">
                     <div class="card p-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -141,25 +141,41 @@
             </div>
         </div>
 
-        <!-- BAGIAN 3: DASHBOARD SALES -->
+        <!-- BAGIAN 3: DASHBOARD SALES (DENGAN TARGET TOKO & STATUS HIJAU) -->
         <div id="salesDashboard" style="display:none;" class="row justify-content-center mt-4">
-            <div class="col-md-5">
+            <div class="col-md-6">
                 <div class="card p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h4 id="welcomeSales" class="text-primary m-0">Halo, Sales</h4>
                         <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
                     </div>
                     <hr>
-                    <h5 class="text-secondary">Form Check-in Kunjungan</h5>
-                    <div class="mb-3">
-                        <label class="form-label">Keterangan / Nama Toko / Catatan</label>
-                        <textarea id="keterangan" class="form-control" rows="3" placeholder="Contoh: Toko Maju Jaya, berhasil order produk."></textarea>
+
+                    <!-- PANEL LAPORAN KUNJUNGAN: TABEL TARGET TOKO -->
+                    <h5 class="text-secondary mb-2">📋 Target & Status Toko Kunjungan</h5>
+                    <div class="table-responsive mb-4" style="max-height: 180px; overflow-y: auto;">
+                        <table class="table table-bordered table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nama Toko / Client</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelTargetToko">
+                                <tr><td colspan="2" class="text-center text-muted">Memuat daftar target...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <!-- INPUT FOTO WAJIB KAMERA LANGSUNG (TANPA GALERI) -->
+
+                    <!-- FORM CHECK-IN -->
+                    <h5 class="text-secondary">Form Check-in Kunjungan Baru</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Nama Toko & Catatan Hasil Kunjungan</label>
+                        <textarea id="keterangan" class="form-control" rows="2" placeholder="Contoh: Toko Berkah Jaya - Berhasil closing produk A."></textarea>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label text-danger fw-bold">📷 Foto Bukti Toko (Wajib Kamera Langsung)</label>
-                        <input type="file" id="fotoToko" accept="image/*" capture="environment" class="form-control border-danger" required>
-                        <small class="text-muted">Klik untuk membuka kamera HP secara langsung di lokasi.</small>
+                        <input type="file" id="fotoToko" accept="image/*" capture="environment" class="form-control border-danger">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Koordinat GPS Anda:</label>
@@ -168,11 +184,15 @@
                     <button class="btn btn-secondary w-100 mb-2" onclick="ambilGPS()">Perbarui Lokasi GPS</button>
                     <button class="btn btn-success w-100 py-2 fw-bold mb-3" onclick="kirimCheckin()">Kirim Check-in Sekarang</button>
 
-                    <!-- TOMBOL DARURAT BULAT MERAH (PANIC BUTTON) -->
-                    <div class="text-center mt-4 border-top pt-3">
-                        <p class="text-danger fw-bold small mb-2">Tombol Darurat / Bantuan Mendesak</p>
-                        <button onclick="kirimDarurat()" class="btn btn-danger rounded-circle shadow-lg d-inline-flex align-items-center justify-content-center" style="width: 85px; height: 85px; font-size: 14px; font-weight: bold; border: 4px solid #fff;">
-                            🚨 DARURAT
+                    <!-- TOMBOL DARURAT DENGAN KOTAK KETERANGAN (MENCEGAH KLIK TIDAK SENGAJA) -->
+                    <div class="card bg-light p-3 mt-3 border-danger">
+                        <h6 class="text-danger fw-bold mb-2">🚨 Tombol Darurat / Bantuan Mendesak</h6>
+                        <div class="mb-2">
+                            <label class="small text-muted">Pilih / Ketik Kendala Darurat:</label>
+                            <input type="text" id="ketDarurat" class="form-control form-control-sm" placeholder="Contoh: Kendaraan mogok / Ban bocor di jalan">
+                        </div>
+                        <button onclick="kirimDarurat()" class="btn btn-danger w-100 fw-bold py-2">
+                            KIRIM SINYAL DARURAT 🚨
                         </button>
                     </div>
                 </div>
@@ -196,6 +216,7 @@
         let map, currentUser = null;
         let markersLayer = [];
         let monitoringInterval = null;
+        let alarmMatiAdmin = false;
 
         function toggleTokenInput() {
             let role = document.getElementById("loginRole").value;
@@ -242,6 +263,7 @@
                     } else {
                         document.getElementById("salesDashboard").style.display = "block";
                         document.getElementById("welcomeSales").innerText = "Halo, " + data.nama;
+                        loadTargetTokoSales();
                         ambilGPS();
                     }
                 } else { alert("Gagal: " + data.message); }
@@ -309,15 +331,15 @@
                             let marker = L.marker([item.latitude, item.longitude]).addTo(map).bindPopup(popupText);
                             markersLayer.push(marker);
 
-                            let itemClass = isEmergency ? "sales-list-item emergency-blink p-2 border-bottom rounded mb-1" : "sales-list-item p-2 border-bottom";
+                            let itemClass = (isEmergency && !alarmMatiAdmin) ? "sales-list-item emergency-blink p-2 border-bottom rounded mb-1" : "sales-list-item p-2 border-bottom";
                             let badgeText = isEmergency ? `<span class="badge bg-dark text-danger">🚨 DARURAT!</span><br>` : "";
 
                             let itemHtml = `
                                 <div class="${itemClass}" onclick="panToLocation(${item.latitude}, ${item.longitude})">
                                     ${badgeText}
                                     <strong>${item.nama}</strong><br>
-                                    <small class="${isEmergency ? 'text-white' : 'text-muted'}">🕒 ${item.waktu}</small><br>
-                                    <small class="${isEmergency ? 'text-white' : 'text-primary'}">📝 ${item.keterangan || '-'}</small>
+                                    <small>🕒 ${item.waktu}</small><br>
+                                    <small>📝 ${item.keterangan || '-'}</small>
                                     ${fotoLink}
                                 </div>`;
                             listContainer.innerHTML += itemHtml;
@@ -325,7 +347,7 @@
                     });
 
                     let navBtn = document.getElementById("btnNavMonitoring");
-                    if (adaDarurat) {
+                    if (adaDarurat && !alarmMatiAdmin) {
                         navBtn.classList.add("emergency-blink");
                         navBtn.innerText = "🚨 ADA DARURAT!";
                     } else {
@@ -334,6 +356,43 @@
                         navBtn.innerText = "🟠 Live Monitoring";
                     }
                 }
+            });
+        }
+
+        function matikanAlarmAdmin() {
+            alarmMatiAdmin = true;
+            let navBtn = document.getElementById("btnNavMonitoring");
+            navBtn.classList.remove("emergency-blink");
+            navBtn.style.backgroundColor = "#fd7e14";
+            navBtn.innerText = "🟠 Live Monitoring (Alarm Dimatikan)";
+            alert("Alarm darurat telah dimatikan sementara oleh Admin.");
+        }
+
+        // Load Target Toko untuk Sales & Cek Status Hijau
+        function loadTargetTokoSales() {
+            fetch(WEB_APP_URL + "?action=getTargetToko")
+            .then(res => res.json())
+            .then(data => {
+                let tbody = document.getElementById("tabelTargetToko");
+                tbody.innerHTML = "";
+                if(data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="2" class="text-center text-muted">Belum ada target toko.</td></tr>`;
+                    return;
+                }
+                data.forEach(toko => {
+                    let isSelesai = toko.status === "Sudah";
+                    let rowClass = isSelesai ? "table-success toko-selesai" : "";
+                    let statusBadge = isSelesai ? `<span class="badge bg-success">Sudah Dikunjungi</span>` : `<span class="badge bg-secondary">Belum</span>`;
+                    
+                    tbody.innerHTML += `
+                        <tr class="${rowClass}">
+                            <td><strong>${toko.nama_toko}</strong><br><small>${toko.alamat || ''}</small></td>
+                            <td>${statusBadge}</td>
+                        </tr>`;
+                });
+            }).catch(err => {
+                // Dummy fallback jika tabel sheet belum dibuat
+                document.getElementById("tabelTargetToko").innerHTML = `<tr><td colspan="2" class="text-center text-muted">Fitur Target Toko Aktif (Sinkronisasi...)</td></tr>`;
             });
         }
 
@@ -357,11 +416,13 @@
             } else { alert("Browser tidak Mendukung Geolocation."); }
         }
 
+        // KIRIM CHECK-IN & AUTO-RESET FORM KOSONG
         function kirimCheckin() {
             let ket = document.getElementById("keterangan").value;
             let fileInput = document.getElementById("fotoToko");
 
             if(!latVal || !lonVal) { alert("Ambil titik GPS terlebih dahulu!"); return; }
+            if(!ket) { alert("Harap isi nama toko dan catatan kunjungan!"); return; }
             if(!fileInput.files || !fileInput.files[0]) { alert("Wajib mengambil foto kondisi/toko menggunakan kamera!"); return; }
 
             let reader = new FileReader();
@@ -372,21 +433,27 @@
             reader.readAsDataURL(fileInput.files[0]);
         }
 
+        // KIRIM DARURAT DENGAN KOTAK KETERANGAN
         function kirimDarurat() {
+            let kendala = document.getElementById("ketDarurat").value;
+            if(!kendala) {
+                alert("Harap isi keterangan kendala darurat terlebih dahulu di kotak yang disediakan!");
+                return;
+            }
             if(!latVal || !lonVal) {
-                alert("Harap aktifkan/perbarui lokasi GPS terlebih dahulu sebelum mengirim sinyal darurat!");
+                alert("Perbarui lokasi GPS terlebih dahulu!");
                 ambilGPS();
                 return;
             }
-            let konfirmasi = confirm("⚠️ PERHATIAN!\nAnda akan mengirim sinyal DARURAT ke Admin pusat. Lanjutkan?");
+            let konfirmasi = confirm("⚠️ KIRIM SINYAL DARURAT?\nKendala: " + kendala + "\nLanjutkan memanggil bantuan Admin?");
             if (konfirmasi) {
-                let pesanDarurat = "[DARURAT] Sales menekan tombol bantuan darurat di lapangan!";
+                let pesanDarurat = "[DARURAT] " + kendala;
                 KirimDataServer(pesanDarurat, "-", true);
             }
         }
 
         function KirimDataServer(keteranganText, fotoBase64, isEmergency = false) {
-            alert("Mengirim data & foto ke server, mohon tunggu sebentar...");
+            alert("Mengirim data ke server, mohon tunggu...");
             fetch(WEB_APP_URL, {
                 method: "POST",
                 body: JSON.stringify({
@@ -404,10 +471,13 @@
                 if(data.status === "success") {
                     if (isEmergency) {
                         alert("🚨 Sinyal Darurat berhasil dikirim ke Admin!");
+                        document.getElementById("ketDarurat").value = "";
                     } else {
-                        alert("Check-in & Foto berhasil dikirim!");
+                        alert("Check-in & Foto berhasil dikirim! Form dikosongkan kembali.");
+                        // AUTO-RESET FORM KOSONG
                         document.getElementById("keterangan").value = "";
                         document.getElementById("fotoToko").value = "";
+                        loadTargetTokoSales(); // Refresh tabel target toko jadi hijau
                     }
                     loadPetaKunjungan();
                 } else { alert("Gagal: " + data.message); }
