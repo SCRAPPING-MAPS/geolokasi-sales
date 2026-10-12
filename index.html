@@ -3,27 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aplikasi Geolokasi Sales Lapangan</title>
+    <title>GPS Control Sales - Sistem Monitoring Lapangan</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Leaflet CSS untuk Peta -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body { background-color: #f8f9fa; }
-        #map { height: 450px; width: 100%; border-radius: 8px; }
+        #map { height: 550px; width: 100%; border-radius: 8px; }
         .card { border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .sales-list-item { cursor: pointer; transition: background 0.2s; }
+        .sales-list-item:hover { background-color: #f1f3f5; }
+        
+        /* Animasi Tombol & Teks Berkedip Merah */
+        @keyframes blink-animation {
+            0% { opacity: 1; background-color: #dc3545; }
+            50% { opacity: 0.3; background-color: #ff6b6b; }
+            100% { opacity: 1; background-color: #dc3545; }
+        }
+        .emergency-blink {
+            animation: blink-animation 1s infinite;
+            color: white !important;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
-    <div class="container my-4">
-        <h3 class="text-center mb-4">📱 Sistem Monitoring Sales Lapangan</h3>
-
+    <div class="container-fluid my-3 px-4">
+        
         <!-- BAGIAN 1: HALAMAN LOGIN -->
-        <div id="loginSection" class="row justify-content-center">
-            <div class="col-md-5">
+        <div id="loginSection" class="row justify-content-center mt-4">
+            <div class="col-md-4">
                 <div class="card p-4">
-                    <h4 class="mb-3 text-center">Silakan Login</h4>
+                    <div class="text-center mb-4">
+                        <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2 shadow-sm" style="width: 60px; height: 60px; font-size: 1.8rem;">
+                            📍
+                        </div>
+                        <h3 class="text-primary m-0 fw-bold">GPS CONTROL</h3>
+                        <p class="text-secondary fw-bold fs-5 m-0" style="letter-spacing: 2px;">SALES</p>
+                        <small class="text-muted">Sistem Monitoring Lapangan</small>
+                    </div>
+
+                    <h5 class="mb-3 text-center border-top pt-3 text-secondary">Silakan Masuk</h5>
+                    
                     <div class="mb-3">
                         <label class="form-label">Username</label>
                         <input type="text" id="loginUser" class="form-control" placeholder="Masukkan username">
@@ -44,77 +67,108 @@
                             <option value="admin">Administrator</option>
                         </select>
                     </div>
-                    <button class="btn btn-primary w-100" onclick="prosesLogin()">Masuk Aplikasi</button>
+                    <button class="btn btn-primary w-100 py-2 fw-bold" onclick="prosesLogin()">Masuk Aplikasi</button>
                 </div>
             </div>
         </div>
 
         <!-- BAGIAN 2: DASHBOARD ADMIN -->
         <div id="adminDashboard" style="display:none;">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4>Panel Administrator</h4>
-                <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+            <!-- Header Navigasi Admin -->
+            <div class="card p-3 mb-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <!-- Tombol Monitoring (Bisa Berkedip Merah jika ada darurat) -->
+                        <button id="btnNavMonitoring" class="btn text-white fw-bold me-2 shadow-sm" style="background-color: #fd7e14;" onclick="switchAdminTab('monitoring')">🟠 Live Monitoring</button>
+                        <button class="btn btn-outline-secondary fw-bold shadow-sm" onclick="switchAdminTab('manajemen')">⚙️ Kelola Sales & Token</button>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span id="adminNameDisplay" class="me-3 fw-semibold text-secondary"></span>
+                        <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+                    </div>
+                </div>
             </div>
 
-            <div class="row">
-                <!-- Form Tambah Sales & Generate Token -->
-                <div class="col-md-4 mb-4">
+            <!-- TAB 1: MONITORING (PETA & SIDEBAR KIRI LIST SALES) -->
+            <div id="tabMonitoring" class="row">
+                <!-- Sidebar Kiri: Daftar Sales Aktif -->
+                <div class="col-md-4 mb-3">
+                    <div class="card p-3" style="height: 600px; overflow-y: auto;">
+                        <h5 class="border-bottom pb-2 text-primary">📍 Sales Aktif Beredar</h5>
+                        <div id="listSalesContainer" class="list-group list-group-flush mt-2">
+                            <small class="text-muted text-center mt-3">Memuat data sales...</small>
+                        </div>
+                    </div>
+                </div>
+                <!-- Sisi Kanan: Peta Aktif -->
+                <div class="col-md-8">
                     <div class="card p-3">
-                        <h5>Tambah Sales Baru</h5>
-                        <p class="text-muted small">Token unik akan otomatis digenerate oleh sistem.</p>
-                        <div class="mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="m-0 text-primary">Peta Sebaran Real-Time</h5>
+                            <button class="btn btn-sm btn-outline-primary" onclick="loadPetaKunjungan()">🔄 Refresh Peta</button>
+                        </div>
+                        <div id="map"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: KELOLA SALES & TOKEN -->
+            <div id="tabManajemen" class="row justify-content-center" style="display:none;">
+                <div class="col-md-6">
+                    <div class="card p-4">
+                        <h4 class="mb-3 text-primary">Tambah Sales Baru & Generate Token</h4>
+                        <div class="mb-3">
                             <label>Nama Lengkap</label>
-                            <input type="text" id="addNama" class="form-control form-control-sm">
+                            <input type="text" id="addNama" class="form-control" placeholder="Nama sales lapangan">
                         </div>
-                        <div class="mb-2">
+                        <div class="mb-3">
                             <label>Nomor HP / WhatsApp</label>
-                            <input type="text" id="addNoHp" class="form-control form-control-sm">
+                            <input type="text" id="addNoHp" class="form-control" placeholder="08xxxxxxxxxx">
                         </div>
-                        <div class="mb-2">
+                        <div class="mb-3">
                             <label>Username</label>
-                            <input type="text" id="addUsername" class="form-control form-control-sm">
+                            <input type="text" id="addUsername" class="form-control" placeholder="Username untuk login">
                         </div>
                         <div class="mb-3">
                             <label>Password Sementara</label>
-                            <input type="password" id="addPassword" class="form-control form-control-sm">
+                            <input type="password" id="addPassword" class="form-control" placeholder="Password akun">
                         </div>
-                        <button class="btn btn-success btn-sm w-100" onclick="tambahSales()">Buat Akun & Token</button>
+                        <button class="btn btn-success w-100 fw-bold" onclick="tambahSales()">Buat Akun & Token Unik</button>
                         
                         <div id="tokenResult" class="mt-3 alert alert-info" style="display:none;"></div>
-                    </div>
-                </div>
-
-                <!-- Peta Pemantauan Sales -->
-                <div class="col-md-8">
-                    <div class="card p-3">
-                        <h5>Peta Live Tracking Sales</h5>
-                        <div id="map"></div>
-                        <button class="btn btn-secondary btn-sm mt-3" onclick="loadPetaKunjungan()">Refresh Data Peta</button>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- BAGIAN 3: DASHBOARD SALES -->
-        <div id="salesDashboard" style="display:none;" class="row justify-content-center">
-            <div class="col-md-6">
+        <div id="salesDashboard" style="display:none;" class="row justify-content-center mt-4">
+            <div class="col-md-5">
                 <div class="card p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 id="welcomeSales">Halo, Sales</h4>
+                        <h4 id="welcomeSales" class="text-primary m-0">Halo, Sales</h4>
                         <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
                     </div>
                     <hr>
-                    <h5>Form Check-in Kunjungan</h5>
+                    <h5 class="text-secondary">Form Check-in Kunjungan</h5>
                     <div class="mb-3">
                         <label class="form-label">Keterangan / Nama Toko / Catatan</label>
-                        <textarea id="keterangan" class="form-control" rows="3" placeholder="Contoh: Kunjungan ke Toko Berkah Jaya, berhasil order produk A."></textarea>
+                        <textarea id="keterangan" class="form-control" rows="3" placeholder="Contoh: Toko Maju Jaya, berhasil order produk."></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Koordinat GPS Anda:</label>
-                        <input type="text" id="gpsCoord" class="form-control" readonly placeholder="Mengambil sinyal GPS...">
+                        <input type="text" id="gpsCoord" class="form-control bg-light" readonly placeholder="Mengambil sinyal GPS...">
                     </div>
-                    <button class="btn btn-primary w-100 mb-2" onclick="ambilGPS()">Perbarui Lokasi GPS</button>
-                    <button class="btn btn-success w-100" onclick="kirimCheckin()">Kirim Check-in Sekarang</button>
+                    <button class="btn btn-secondary w-100 mb-2" onclick="ambilGPS()">Perbarui Lokasi GPS</button>
+                    <button class="btn btn-success w-100 py-2 fw-bold mb-3" onclick="kirimCheckin()">Kirim Check-in Sekarang</button>
+
+                    <!-- TOMBOL DARURAT BULAT MERAH (PANIC BUTTON) -->
+                    <div class="text-center mt-4 border-top pt-3">
+                        <p class="text-danger fw-bold small mb-2">Tombol Darurat / Bantuan Mendesak</p>
+                        <button onclick="kirimDarurat()" class="btn btn-danger rounded-circle shadow-lg d-inline-flex align-items-center justify-content-center" style="width: 85px; height: 85px; font-size: 14px; font-weight: bold; border: 4px solid #fff;">
+                            🚨 DARURAT
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -125,10 +179,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // GANTI DENGAN URL WEB APP GAS ANDA
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwUinO3GhKGuPH0RMvOHwf2kpFuvf8Upyg2w9u2QTclJEFYz63aQ7aXfCYEZBynGCgI2g/exec";
 
-        // Buat atau Ambil Device ID unik untuk HP ini agar terkunci mati
         let deviceId = localStorage.getItem("device_id");
         if (!deviceId) {
             deviceId = "DEV-" + Math.random().toString(36).substring(2, 10) + "-" + Date.now();
@@ -136,23 +188,32 @@
         }
 
         let map, currentUser = null;
+        let markersLayer = [];
+        let monitoringInterval = null;
 
         function toggleTokenInput() {
             let role = document.getElementById("loginRole").value;
             document.getElementById("tokenGroup").style.display = (role === 'sales') ? 'block' : 'none';
         }
 
-        // Proses Login
+        function switchAdminTab(tab) {
+            if(tab === 'monitoring') {
+                document.getElementById("tabMonitoring").style.display = "flex";
+                document.getElementById("tabManajemen").style.display = "none";
+                setTimeout(() => { if(map) map.invalidateSize(); }, 200);
+            } else {
+                document.getElementById("tabMonitoring").style.display = "none";
+                document.getElementById("tabManajemen").style.display = "flex";
+            }
+        }
+
         function prosesLogin() {
             let username = document.getElementById("loginUser").value;
             let password = document.getElementById("loginPass").value;
             let role = document.getElementById("loginRole").value;
             let token = document.getElementById("loginToken").value;
 
-            if(!username || !password) {
-                alert("Username dan Password wajib diisi!");
-                return;
-            }
+            if(!username || !password) { alert("Username dan Password wajib diisi!"); return; }
 
             let action = (role === 'admin') ? 'loginAdmin' : 'loginSales';
 
@@ -163,40 +224,33 @@
             .then(res => res.json())
             .then(data => {
                 if(data.status === "success") {
-                    alert(data.message || "Login Berhasil!");
                     currentUser = data;
                     document.getElementById("loginSection").style.display = "none";
                     
                     if(data.role === 'admin') {
                         document.getElementById("adminDashboard").style.display = "block";
+                        document.getElementById("adminNameDisplay").innerText = "Halo, " + data.nama;
                         initMap();
                         loadPetaKunjungan();
+                        // Auto-refresh peta & cek darurat tiap 10 detik untuk admin
+                        monitoringInterval = setInterval(loadPetaKunjungan, 10000);
                     } else {
                         document.getElementById("salesDashboard").style.display = "block";
                         document.getElementById("welcomeSales").innerText = "Halo, " + data.nama;
                         ambilGPS();
                     }
-                } else {
-                    alert("Gagal: " + data.message);
-                }
+                } else { alert("Gagal: " + data.message); }
             })
-            .catch(err => {
-                console.error(err);
-                alert("Terjadi kesalahan koneksi.");
-            });
+            .catch(err => { console.error(err); alert("Terjadi kesalahan koneksi."); });
         }
 
-        // Admin: Tambah Sales & Generate Token
         function tambahSales() {
             let nama = document.getElementById("addNama").value;
             let noHp = document.getElementById("addNoHp").value;
             let username = document.getElementById("addUsername").value;
             let password = document.getElementById("addPassword").value;
 
-            if(!nama || !username || !password) {
-                alert("Semua field wajib diisi!");
-                return;
-            }
+            if(!nama || !username || !password) { alert("Semua field wajib diisi!"); return; }
 
             fetch(WEB_APP_URL, {
                 method: "POST",
@@ -207,40 +261,81 @@
                 if(data.status === "success") {
                     let resBox = document.getElementById("tokenResult");
                     resBox.style.display = "block";
-                    resBox.innerHTML = `<strong>Berhasil!</strong><br>Token Aktivasi Sales: <b class="text-danger">${data.token}</b><br><small>Bagikan token ini ke WhatsApp sales bersangkutan.</small>`;
-                } else {
-                    alert("Error: " + data.message);
-                }
+                    resBox.innerHTML = `<strong>Berhasil!</strong><br>Token Aktivasi Sales: <b class="text-danger">${data.token}</b><br><small>Bagikan token ini ke WhatsApp sales.</small>`;
+                } else { alert("Error: " + data.message); }
             });
         }
 
-        // Inisialisasi Peta Leaflet Admin
         function initMap() {
             if (!map) {
-                map = L.map('map').setView([-6.9175, 107.6191], 13); // Default Bandung
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap contributors'
+                map = L.map('map').setView([-6.9175, 107.6191], 13);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; CARTO'
                 }).addTo(map);
             }
         }
 
-        // Load Titik Kunjungan Sales di Peta Admin
         function loadPetaKunjungan() {
             fetch(WEB_APP_URL + "?action=getKunjungan")
             .then(res => res.json())
             .then(data => {
                 if(map) {
-                    data.forEach(item => {
+                    markersLayer.forEach(m => map.removeLayer(m));
+                    markersLayer = [];
+
+                    let listContainer = document.getElementById("listSalesContainer");
+                    listContainer.innerHTML = "";
+
+                    if(data.length === 0) {
+                        listContainer.innerHTML = `<small class="text-muted text-center mt-3">Belum ada aktivitas check-in.</small>";
+                        return;
+                    }
+
+                    let adaDarurat = false;
+
+                    data.reverse().forEach(item => {
                         if(item.latitude && item.longitude) {
+                            let isEmergency = item.keterangan && item.keterangan.startsWith("[DARURAT]");
+                            if (isEmergency) adaDarurat = true;
+
                             let popupText = `<b>${item.nama}</b><br>Waktu: ${item.waktu}<br>Ket: ${item.keterangan}`;
-                            L.marker([item.latitude, item.longitude]).addTo(map).bindPopup(popupText);
+                            let marker = L.marker([item.latitude, item.longitude]).addTo(map).bindPopup(popupText);
+                            markersLayer.push(marker);
+
+                            // Jika darurat, buat item sidebar berkedip merah
+                            let itemClass = isEmergency ? "sales-list-item emergency-blink p-2 border-bottom rounded mb-1" : "sales-list-item p-2 border-bottom";
+                            let badgeText = isEmergency ? `<span class="badge bg-dark text-danger">🚨 DARURAT!</span><br>` : "";
+
+                            let itemHtml = `
+                                <div class="${itemClass}" onclick="panToLocation(${item.latitude}, ${item.longitude})">
+                                    ${badgeText}
+                                    <strong>${item.nama}</strong><br>
+                                    <small class="${isEmergency ? 'text-white' : 'text-muted'}">🕒 ${item.waktu}</small><br>
+                                    <small class="${isEmergency ? 'text-white' : 'text-primary'}">📝 ${item.keterangan || '-'}</small>
+                                </div>`;
+                            listContainer.innerHTML += itemHtml;
                         }
                     });
+
+                    // Ubah tombol navigasi admin jadi berkedip jika ada sinyal darurat aktif
+                    let navBtn = document.getElementById("btnNavMonitoring");
+                    if (adaDarurat) {
+                        navBtn.classList.add("emergency-blink");
+                        navBtn.innerText = "🚨 ADA DARURAT!";
+                    } else {
+                        navBtn.classList.remove("emergency-blink");
+                        navBtn.style.backgroundColor = "#fd7e14";
+                        navBtn.innerText = "🟠 Live Monitoring";
+                    }
                 }
             });
         }
 
-        // Sales: Ambil Koordinat GPS
+        function panToLocation(lat, lon) {
+            if(map) { map.setView([lat, lon], 16); }
+        }
+
         let latVal = 0, lonVal = 0;
         function ambilGPS() {
             let coordInput = document.getElementById("gpsCoord");
@@ -251,22 +346,33 @@
                     lonVal = position.coords.longitude;
                     coordInput.value = `Lat: ${latVal}, Lon: ${lonVal}`;
                 }, error => {
-                    alert("Gagal mendeteksi GPS. Pastikan izin lokasi aktif.");
-                    coordInput.value = "GPS Gagal dideteksi";
+                    alert("Gagal mendeteksi GPS. Aktifkan izin lokasi.");
+                    coordInput.value = "GPS Gagal";
                 }, { enableHighAccuracy: true });
-            } else {
-                alert("Browser tidak Mendukung Geolocation.");
+            } else { alert("Browser tidak Mendukung Geolocation."); }
+        }
+
+        function kirimCheckin() {
+            let ket = document.getElementById("keterangan").value;
+            if(!latVal || !lonVal) { alert("Ambil titik GPS terlebih dahulu!"); return; }
+            KirimDataServer(ket);
+        }
+
+        // Fungsi Kirim Tombol Darurat
+        function kirimDarurat() {
+            if(!latVal || !lonVal) {
+                alert("Harap aktifkan/perbarui lokasi GPS terlebih dahulu sebelum mengirim sinyal darurat!");
+                ambilGPS();
+                return;
+            }
+            let konfirmasi = confirm("⚠️ PERHATIAN!\nAnda akan mengirim sinyal DARURAT ke Admin pusat. Lanjutkan?");
+            if (konfirmasi) {
+                let pesanDarurat = "[DARURAT] Sales menekan tombol bantuan darurat di lapangan!";
+                KirimDataServer(pesanDarurat, true);
             }
         }
 
-        // Sales: Kirim Check-in
-        function kirimCheckin() {
-            let ket = document.getElementById("keterangan").value;
-            if(!latVal || !lonVal) {
-                alert("Harap ambil titik GPS terlebih dahulu!");
-                return;
-            }
-
+        function KirimDataServer(keteranganText, isEmergency = false) {
             fetch(WEB_APP_URL, {
                 method: "POST",
                 body: JSON.stringify({
@@ -275,21 +381,24 @@
                     nama: currentUser.nama,
                     latitude: latVal,
                     longitude: lonVal,
-                    keterangan: ket
+                    keterangan: keteranganText
                 })
             })
             .then(res => res.json())
             .then(data => {
                 if(data.status === "success") {
-                    alert("Check-in berhasil dikirim ke server!");
-                    document.getElementById("keterangan").value = "";
-                } else {
-                    alert("Gagal: " + data.message);
-                }
+                    if (isEmergency) {
+                        alert("🚨 Sinyal Darurat berhasil dikirim ke Admin!");
+                    } else {
+                        alert("Check-in berhasil dikirim!");
+                        document.getElementById("keterangan").value = "";
+                    }
+                } else { alert("Gagal: " + data.message); }
             });
         }
 
         function logout() {
+            if(monitoringInterval) clearInterval(monitoringInterval);
             location.reload();
         }
     </script>
