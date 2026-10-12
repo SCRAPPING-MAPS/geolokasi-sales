@@ -155,6 +155,12 @@
                         <label class="form-label">Keterangan / Nama Toko / Catatan</label>
                         <textarea id="keterangan" class="form-control" rows="3" placeholder="Contoh: Toko Maju Jaya, berhasil order produk."></textarea>
                     </div>
+                    <!-- INPUT FOTO WAJIB KAMERA LANGSUNG (TANPA GALERI) -->
+                    <div class="mb-3">
+                        <label class="form-label text-danger fw-bold">📷 Foto Bukti Toko (Wajib Kamera Langsung)</label>
+                        <input type="file" id="fotoToko" accept="image/*" capture="environment" class="form-control border-danger" required>
+                        <small class="text-muted">Klik untuk membuka kamera HP secara langsung di lokasi.</small>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">Koordinat GPS Anda:</label>
                         <input type="text" id="gpsCoord" class="form-control bg-light" readonly placeholder="Mengambil sinyal GPS...">
@@ -268,7 +274,6 @@
         function initMap() {
             if (!map) {
                 map = L.map('map').setView([-6.9175, 107.6191], 13);
-                // Menggunakan OpenStreetMap standar (Gratis & Tanpa API Key)
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
                     attribution: '&copy; OpenStreetMap contributors'
@@ -299,7 +304,8 @@
                             let isEmergency = item.keterangan && item.keterangan.startsWith("[DARURAT]");
                             if (isEmergency) adaDarurat = true;
 
-                            let popupText = `<b>${item.nama}</b><br>Waktu: ${item.waktu}<br>Ket: ${item.keterangan}`;
+                            let fotoLink = (item.foto_url && item.foto_url !== "-") ? `<br><a href="${item.foto_url}" target="_blank" class="small text-success fw-bold">📸 Lihat Foto Toko</a>` : "";
+                            let popupText = `<b>${item.nama}</b><br>Waktu: ${item.waktu}<br>Ket: ${item.keterangan}${fotoLink}`;
                             let marker = L.marker([item.latitude, item.longitude]).addTo(map).bindPopup(popupText);
                             markersLayer.push(marker);
 
@@ -312,6 +318,7 @@
                                     <strong>${item.nama}</strong><br>
                                     <small class="${isEmergency ? 'text-white' : 'text-muted'}">🕒 ${item.waktu}</small><br>
                                     <small class="${isEmergency ? 'text-white' : 'text-primary'}">📝 ${item.keterangan || '-'}</small>
+                                    ${fotoLink}
                                 </div>`;
                             listContainer.innerHTML += itemHtml;
                         }
@@ -352,8 +359,17 @@
 
         function kirimCheckin() {
             let ket = document.getElementById("keterangan").value;
+            let fileInput = document.getElementById("fotoToko");
+
             if(!latVal || !lonVal) { alert("Ambil titik GPS terlebih dahulu!"); return; }
-            KirimDataServer(ket);
+            if(!fileInput.files || !fileInput.files[0]) { alert("Wajib mengambil foto kondisi/toko menggunakan kamera!"); return; }
+
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                let base64Image = e.target.result;
+                KirimDataServer(ket, base64Image, false);
+            };
+            reader.readAsDataURL(fileInput.files[0]);
         }
 
         function kirimDarurat() {
@@ -365,11 +381,12 @@
             let konfirmasi = confirm("⚠️ PERHATIAN!\nAnda akan mengirim sinyal DARURAT ke Admin pusat. Lanjutkan?");
             if (konfirmasi) {
                 let pesanDarurat = "[DARURAT] Sales menekan tombol bantuan darurat di lapangan!";
-                KirimDataServer(pesanDarurat, true);
+                KirimDataServer(pesanDarurat, "-", true);
             }
         }
 
-        function KirimDataServer(keteranganText, isEmergency = false) {
+        function KirimDataServer(keteranganText, fotoBase64, isEmergency = false) {
+            alert("Mengirim data & foto ke server, mohon tunggu sebentar...");
             fetch(WEB_APP_URL, {
                 method: "POST",
                 body: JSON.stringify({
@@ -378,7 +395,8 @@
                     nama: currentUser.nama,
                     latitude: latVal,
                     longitude: lonVal,
-                    keterangan: keteranganText
+                    keterangan: keteranganText,
+                    fotoUrl: fotoBase64
                 })
             })
             .then(res => res.json())
@@ -387,10 +405,15 @@
                     if (isEmergency) {
                         alert("🚨 Sinyal Darurat berhasil dikirim ke Admin!");
                     } else {
-                        alert("Check-in berhasil dikirim!");
+                        alert("Check-in & Foto berhasil dikirim!");
                         document.getElementById("keterangan").value = "";
+                        document.getElementById("fotoToko").value = "";
                     }
+                    loadPetaKunjungan();
                 } else { alert("Gagal: " + data.message); }
+            }).catch(err => {
+                console.error(err);
+                alert("Gagal koneksi ke server.");
             });
         }
 
