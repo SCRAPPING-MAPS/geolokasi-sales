@@ -232,7 +232,6 @@
                         document.getElementById("adminNameDisplay").innerText = "Halo, " + data.nama;
                         initMap();
                         loadPetaKunjungan();
-                        // Auto-refresh peta & cek darurat tiap 10 detik untuk admin
                         monitoringInterval = setInterval(loadPetaKunjungan, 10000);
                     } else {
                         document.getElementById("salesDashboard").style.display = "block";
@@ -288,7 +287,7 @@
                     listContainer.innerHTML = "";
 
                     if(data.length === 0) {
-                        listContainer.innerHTML = `<small class="text-muted text-center mt-3">Belum ada aktivitas check-in.</small>";
+                        listContainer.innerHTML = `<small class="text-muted text-center mt-3">Belum ada aktivitas check-in.</small>`;
                         return;
                     }
 
@@ -303,7 +302,6 @@
                             let marker = L.marker([item.latitude, item.longitude]).addTo(map).bindPopup(popupText);
                             markersLayer.push(marker);
 
-                            // Jika darurat, buat item sidebar berkedip merah
                             let itemClass = isEmergency ? "sales-list-item emergency-blink p-2 border-bottom rounded mb-1" : "sales-list-item p-2 border-bottom";
                             let badgeText = isEmergency ? `<span class="badge bg-dark text-danger">🚨 DARURAT!</span><br>` : "";
 
@@ -318,7 +316,6 @@
                         }
                     });
 
-                    // Ubah tombol navigasi admin jadi berkedip jika ada sinyal darurat aktif
                     let navBtn = document.getElementById("btnNavMonitoring");
                     if (adaDarurat) {
                         navBtn.classList.add("emergency-blink");
@@ -358,7 +355,6 @@
             KirimDataServer(ket);
         }
 
-        // Fungsi Kirim Tombol Darurat
         function kirimDarurat() {
             if(!latVal || !lonVal) {
                 alert("Harap aktifkan/perbarui lokasi GPS terlebih dahulu sebelum mengirim sinyal darurat!");
