@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Geolokasi Sales Lapangan</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Leaflet CSS untuk Peta -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { background-color: #f8f9fa; }
+        #map { height: 450px; width: 100%; border-radius: 8px; }
+        .card { border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+
+    <div class="container my-4">
+        <h3 class="text-center mb-4">📱 Sistem Monitoring Sales Lapangan</h3>
+
+        <!-- BAGIAN 1: HALAMAN LOGIN -->
+        <div id="loginSection" class="row justify-content-center">
+            <div class="col-md-5">
+                <div class="card p-4">
+                    <h4 class="mb-3 text-center">Silakan Login</h4>
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" id="loginUser" class="form-control" placeholder="Masukkan username">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" id="loginPass" class="form-control" placeholder="Masukkan password">
+                    </div>
+                    <div class="mb-3" id="tokenGroup" style="display:none;">
+                        <label class="form-label text-danger">Token Aktivasi (Khusus Login Pertama)</label>
+                        <input type="text" id="loginToken" class="form-control" placeholder="Masukkan Token dari Admin">
+                        <small class="text-muted">Token hanya dimasukkan sekali saat pertama kali login di HP ini.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Login Sebagai:</label>
+                        <select id="loginRole" class="form-select" onchange="toggleTokenInput()">
+                            <option value="sales">Sales Lapangan</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary w-100" onclick="prosesLogin()">Masuk Aplikasi</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BAGIAN 2: DASHBOARD ADMIN -->
+        <div id="adminDashboard" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>Panel Administrator</h4>
+                <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+            </div>
+
+            <div class="row">
+                <!-- Form Tambah Sales & Generate Token -->
+                <div class="col-md-4 mb-4">
+                    <div class="card p-3">
+                        <h5>Tambah Sales Baru</h5>
+                        <p class="text-muted small">Token unik akan otomatis digenerate oleh sistem.</p>
+                        <div class="mb-2">
+                            <label>Nama Lengkap</label>
+                            <input type="text" id="addNama" class="form-control form-control-sm">
+                        </div>
+                        <div class="mb-2">
+                            <label>Nomor HP / WhatsApp</label>
+                            <input type="text" id="addNoHp" class="form-control form-control-sm">
+                        </div>
+                        <div class="mb-2">
+                            <label>Username</label>
+                            <input type="text" id="addUsername" class="form-control form-control-sm">
+                        </div>
+                        <div class="mb-3">
+                            <label>Password Sementara</label>
+                            <input type="password" id="addPassword" class="form-control form-control-sm">
+                        </div>
+                        <button class="btn btn-success btn-sm w-100" onclick="tambahSales()">Buat Akun & Token</button>
+                        
+                        <div id="tokenResult" class="mt-3 alert alert-info" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <!-- Peta Pemantauan Sales -->
+                <div class="col-md-8">
+                    <div class="card p-3">
+                        <h5>Peta Live Tracking Sales</h5>
+                        <div id="map"></div>
+                        <button class="btn btn-secondary btn-sm mt-3" onclick="loadPetaKunjungan()">Refresh Data Peta</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BAGIAN 3: DASHBOARD SALES -->
+        <div id="salesDashboard" style="display:none;" class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 id="welcomeSales">Halo, Sales</h4>
+                        <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+                    </div>
+                    <hr>
+                    <h5>Form Check-in Kunjungan</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Keterangan / Nama Toko / Catatan</label>
+                        <textarea id="keterangan" class="form-control" rows="3" placeholder="Contoh: Kunjungan ke Toko Berkah Jaya, berhasil order produk A."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Koordinat GPS Anda:</label>
+                        <input type="text" id="gpsCoord" class="form-control" readonly placeholder="Mengambil sinyal GPS...">
+                    </div>
+                    <button class="btn btn-primary w-100 mb-2" onclick="ambilGPS()">Perbarui Lokasi GPS</button>
+                    <button class="btn btn-success w-100" onclick="kirimCheckin()">Kirim Check-in Sekarang</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Leaflet JS & Bootstrap JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // GANTI DENGAN URL WEB APP GAS ANDA
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwUinO3GhKGuPH0RMvOHwf2kpFuvf8Upyg2w9u2QTclJEFYz63aQ7aXfCYEZBynGCgI2g/exec";
+
+        // Buat atau Ambil Device ID unik untuk HP ini agar terkunci mati
+        let deviceId = localStorage.getItem("device_id");
+        if (!deviceId) {
+            deviceId = "DEV-" + Math.random().toString(36).substring(2, 10) + "-" + Date.now();
+            localStorage.setItem("device_id", deviceId);
+        }
+
+        let map, currentUser = null;
+
+        function toggleTokenInput() {
+            let role = document.getElementById("loginRole").value;
+            document.getElementById("tokenGroup").style.display = (role === 'sales') ? 'block' : 'none';
+        }
+
+        // Proses Login
+        function prosesLogin() {
+            let username = document.getElementById("loginUser").value;
+            let password = document.getElementById("loginPass").value;
+            let role = document.getElementById("loginRole").value;
+            let token = document.getElementById("loginToken").value;
+
+            if(!username || !password) {
+                alert("Username dan Password wajib diisi!");
+                return;
+            }
+
+            let action = (role === 'admin') ? 'loginAdmin' : 'loginSales';
+
+            fetch(WEB_APP_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: action, username: username, password: password, token: token, deviceId: deviceId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === "success") {
+                    alert(data.message || "Login Berhasil!");
+                    currentUser = data;
+                    document.getElementById("loginSection").style.display = "none";
+                    
+                    if(data.role === 'admin') {
+                        document.getElementById("adminDashboard").style.display = "block";
+                        initMap();
+                        loadPetaKunjungan();
+                    } else {
+                        document.getElementById("salesDashboard").style.display = "block";
+                        document.getElementById("welcomeSales").innerText = "Halo, " + data.nama;
+                        ambilGPS();
+                    }
+                } else {
+                    alert("Gagal: " + data.message);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Terjadi kesalahan koneksi.");
+            });
+        }
+
+        // Admin: Tambah Sales & Generate Token
+        function tambahSales() {
+            let nama = document.getElementById("addNama").value;
+            let noHp = document.getElementById("addNoHp").value;
+            let username = document.getElementById("addUsername").value;
+            let password = document.getElementById("addPassword").value;
+
+            if(!nama || !username || !password) {
+                alert("Semua field wajib diisi!");
+                return;
+            }
+
+            fetch(WEB_APP_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "tambahSales", nama: nama, noHp: noHp, username: username, password: password })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === "success") {
+                    let resBox = document.getElementById("tokenResult");
+                    resBox.style.display = "block";
+                    resBox.innerHTML = `<strong>Berhasil!</strong><br>Token Aktivasi Sales: <b class="text-danger">${data.token}</b><br><small>Bagikan token ini ke WhatsApp sales bersangkutan.</small>`;
+                } else {
+                    alert("Error: " + data.message);
+                }
+            });
+        }
+
+        // Inisialisasi Peta Leaflet Admin
+        function initMap() {
+            if (!map) {
+                map = L.map('map').setView([-6.9175, 107.6191], 13); // Default Bandung
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
+            }
+        }
+
+        // Load Titik Kunjungan Sales di Peta Admin
+        function loadPetaKunjungan() {
+            fetch(WEB_APP_URL + "?action=getKunjungan")
+            .then(res => res.json())
+            .then(data => {
+                if(map) {
+                    data.forEach(item => {
+                        if(item.latitude && item.longitude) {
+                            let popupText = `<b>${item.nama}</b><br>Waktu: ${item.waktu}<br>Ket: ${item.keterangan}`;
+                            L.marker([item.latitude, item.longitude]).addTo(map).bindPopup(popupText);
+                        }
+                    });
+                }
+            });
+        }
+
+        // Sales: Ambil Koordinat GPS
+        let latVal = 0, lonVal = 0;
+        function ambilGPS() {
+            let coordInput = document.getElementById("gpsCoord");
+            coordInput.value = "Mencari lokasi satelit GPS...";
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    latVal = position.coords.latitude;
+                    lonVal = position.coords.longitude;
+                    coordInput.value = `Lat: ${latVal}, Lon: ${lonVal}`;
+                }, error => {
+                    alert("Gagal mendeteksi GPS. Pastikan izin lokasi aktif.");
+                    coordInput.value = "GPS Gagal dideteksi";
+                }, { enableHighAccuracy: true });
+            } else {
+                alert("Browser tidak Mendukung Geolocation.");
+            }
+        }
+
+        // Sales: Kirim Check-in
+        function kirimCheckin() {
+            let ket = document.getElementById("keterangan").value;
+            if(!latVal || !lonVal) {
+                alert("Harap ambil titik GPS terlebih dahulu!");
+                return;
+            }
+
+            fetch(WEB_APP_URL, {
+                method: "POST",
+                body: JSON.stringify({
+                    action: "checkin",
+                    username: currentUser.username,
+                    nama: currentUser.nama,
+                    latitude: latVal,
+                    longitude: lonVal,
+                    keterangan: ket
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === "success") {
+                    alert("Check-in berhasil dikirim ke server!");
+                    document.getElementById("keterangan").value = "";
+                } else {
+                    alert("Gagal: " + data.message);
+                }
+            });
+        }
+
+        function logout() {
+            location.reload();
+        }
+    </script>
+</body>
+</html>
